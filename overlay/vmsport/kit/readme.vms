@@ -1,0 +1,77 @@
+Apache Ant @VERSION@ for OpenVMS (@KITVERSION@, @ARCH@)
+===================================================
+
+Apache Ant (https://ant.apache.org) running on VSI OpenJDK 8.  This kit is
+the upstream binary distribution with six patched classes in lib/ant.jar,
+ANT.EXE, a launcher that does what bin/ant does, and ANTDCL.EXE, which runs
+the DCL commands a build starts.  Sources, patches and notes:
+https://github.com/issinoho/vms-ant
+
+Installation
+------------
+
+    $ PRODUCT INSTALL ANT /SOURCE=<directory with the kit>
+
+The Ant home is ANT$ROOT:[000000] (the installed [ANT] directory).  To define
+ANT$ROOT at every boot, add to SYS$MANAGER:SYSTARTUP_VMS.COM:
+
+    $ @SYS$STARTUP:ANT$STARTUP.COM
+
+and for each user, to LOGIN.COM (or SYS$MANAGER:SYLOGIN.COM):
+
+    $ @ANT$ROOT:[000000]ANT$SETUP.COM
+
+ANT$SETUP.COM defines ANT and, when no Java is set up, runs
+SYS$STARTUP:OPENJDK$SETUP.COM.  PRODUCT REMOVE ANT removes it all.  The manual
+is ANT$ROOT:[MANUAL]index.html.
+
+Using it
+--------
+
+    $ SET PROCESS/PARSE_STYLE=EXTENDED       ! keep the case of arguments
+    $ ANT                                    ! build.xml in the current directory
+    $ PIPE ANT -f /DISK$USER/ME/proj/build.xml dist > build.log
+
+- Under the TRADITIONAL parse style (the default, and what batch jobs get),
+  arguments not in quotes reach Ant in lower case: "-Dmy.Prop=Value" and
+  target names with capitals need the quotes.  The launcher prints a note
+  when Ant then fails.
+- Give file options Unix paths (-f /DISK$USER/ME/proj/build.xml); Java on
+  OpenVMS does not take [.X]Y.Z.  Paths in build files are Unix paths too.
+- Programs a build starts:
+    * <java fork>, <javac fork>, <junit fork>, <javadoc> run the JDK's images
+      (JAVA.EXE, JAVAC.EXE...) with their arguments as given.
+    * <exec executable="mms"> runs a DCL command when no image of that name
+      exists: DCL verbs and the job's foreign-command symbols work.
+      vmlauncher="false" always uses DCL; vmlauncher="true" never does.
+      An argument with white space is quoted for DCL; one written with
+      quotes already ('"Two words"') and qualifiers (/SIZE) are passed as they
+      are.  A DCL command gets its input from NL:.
+    * A program's exit code decides success, as on other systems: 0 is
+      success.  A DCL command's success status counts as 0.
+- <property environment="env"/> gives the process's logical names
+  (env.SYS$LOGIN ...).
+- File versions: the launcher has Java delete and rename all versions of a
+  file (JAVA$DELETE_ALL_VERSIONS and two more, unless defined), so <delete>
+  and clean targets work.  A file a build rewrites in place (reports, <echo
+  file>) still gets a new version: SET DIRECTORY/VERSION_LIMIT on output
+  directories if that matters.
+- Quotas: Java wants FILLM 4096 and PGFLQUOTA 2097152.  Forked JVMs share them
+  with Ant's, so with a default account's quotas larger builds fail ("unable
+  to create new native thread"); the launcher says so.  ANT_OPTS sets the
+  JVM's sizes (the launcher's defaults are -Xms16m -Xmx256m).
+- On a terminal, CTRL/C and CTRL/Y stop Ant (Java runs its shutdown hooks),
+  also while a DCL command runs.  $STATUS afterwards is not reliable.
+- ANT_OPTS, ANT_ARGS, CLASSPATH, JAVA_HOME and ANT_HOME may be DCL symbols or
+  logical names; --noclasspath leaves CLASSPATH out.  ANT_VMS_TRACE prints
+  the Java command and each DCL command ANTDCL.EXE runs.  -lib and
+  SYS$LOGIN:[.ant.lib] add jars to Ant, as elsewhere.
+
+Not in the kit: the Unix and Windows scripts of bin/ (ant, ant.bat, antRun,
+runant.pl ...).
+
+Licence
+-------
+
+Ant is under the Apache License 2.0: ANT$ROOT:[000000]LICENSE. and NOTICE.
+The OpenVMS changes are under the same licence.

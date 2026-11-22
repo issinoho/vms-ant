@@ -1,0 +1,20 @@
+=product @PRODUCER@ @BASE@ ANT @PCSIVERSION@ full
+1 'PRODUCER
+=prompt @PRODUCER@
+1 'PRODUCT
+=prompt Apache Ant @VERSION@ for OpenVMS
+1 'NOTICE
+=prompt Apache Ant is under the Apache License 2.0; see [ANT]LICENSE.
+1 RELEASE_NOTES
+=prompt Documentation is in [ANT]README.VMS under the installation directory.
+1 POST_INSTALL
+=prompt Post-installation tasks for Apache Ant
+    At system startup: to define ANT$ROOT at every boot, add this line to
+    SYS$MANAGER:SYSTARTUP_VMS.COM:
+    $ @SYS$STARTUP:ANT$STARTUP.COM
+    For each user: to define the ANT command, add this line to LOGIN.COM:
+    $ @ANT$ROOT:[000000]ANT$SETUP.COM
+    Ant needs VSI OpenJDK 8 (SYS$STARTUP:OPENJDK$SETUP.COM).
+    The manual is ANT$ROOT:[MANUAL]index.html.
+
+PRODUCT REMOVE ANT removes the product and deassigns ANT$ROOT.

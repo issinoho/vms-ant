@@ -179,3 +179,18 @@ jars from `-lib out/junit5`, and again with them in a test home's `.ant/lib`
 (`ANT_OPTS=-Duser.home=out/home`; without them there neither the Jupiter test
 compiles nor the task loads). As on any platform, the forked test JVM needs the
 engine jars on the task's classpath. PROJECTS 7/7.
+
+## N13. VSI's own Ant kit (x86-64, found 2026-11-22)
+
+The x86-64 node has `VSI X86VMS ANT V1.10-14A` (installed 20-SEP-2024): Ant 1.10.14,
+"modified from the original Ant distribution" (its README.VMS does not say how), in
+`SYS$COMMON:[ANT_110]`, with the system logical `ANT$HOME` and `bin/ANT.COM`, a DCL
+launcher by HP (2007): `ANT :== @SYS$COMMON:[ANT_110.BIN]ANT.COM`, and
+`ant "-version"` ("must quote DCL params": a procedure gets at most 8 upper-cased
+parameters, vms-maven N4). The setup is by hand (DEFINE ANT$HOME, the ANT symbol);
+the Unix and Windows scripts of bin/ are installed too.
+
+This kit does not collide with it on disk or in logical names: `[ANT]` and `ANT$ROOT`
+against `[ANT_110]` and `ANT$HOME`. Both are product ANT under different producers
+(ISSINOHO, VSI), so PRODUCT commands must name the producer; and both set up a
+symbol ANT (whichever setup runs last wins).
