@@ -23,6 +23,7 @@ what has been proposed, settled and found.
 tools/prepare.sh                 # always first after changing patches/ or overlay/
 tools/build.sh <x86|ia64> [ALL|CLEAN]  # ANT.EXE, ANTDCL.EXE, patched lib/ant.jar
 tools/test.sh <node>             # TEST_SMOKE.COM as a batch job (out/smoke-<node>.log)
+tools/ttytest.sh <node>          # ANT on a terminal (pexpect+pyte; TTYTEST_PYTHON=<venv python>)
 tools/push.sh <node>             # upload staging/ (changed files; PUSH_MANUAL=1 adds manual/)
 tools/vms.sh <node> batch <file.com>   # e.g. @[...VMSPORT]PROBE.COM "targets" LOGICALS TRADITIONAL TRACE
 ```

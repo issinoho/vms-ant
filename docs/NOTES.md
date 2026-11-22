@@ -138,3 +138,15 @@ before). A global foreign-command symbol defined in the job before ANT runs
 (`ANTSMOKESYM == "write sys$output ""from a symbol"""`) works as an executable:
 ANTDCL.EXE's LIB$SPAWN copies the symbols of its process, so the job's symbols
 reach it through ANT.EXE, Java and ANTDCL.EXE. Smoke 17/17.
+
+## N11. ANT on a terminal (x86-64, 2026-11-22)
+
+tools/ttytest.sh (from vms-maven's, an ssh pseudo-terminal checked with pyte):
+14/14. Output comes a whole line at a time with no escape sequences; DCL commands'
+output (through ANTDCL.EXE) shows in Ant's `[exec]` lines. CTRL/C and CTRL/Y while
+Ant waits in Java (`<sleep>`), and CTRL/C while it waits in a DCL command (`WAIT`
+under ANTDCL.EXE's subprocess), all end the build: Java exits 130 (ANT.EXE's wait
+status `%X00008200`), and no subprocess is left (OpenVMS deletes ANTDCL's with
+Java). DCL has CTRL/Y back afterwards. `$STATUS` at the prompt was `%X00030001`
+each time: DCL acts on the key once the image has ended (vms-maven N24), so it is
+shown, not checked.

@@ -223,6 +223,20 @@ $ write sys$output "three"
     <fail message="env value"><condition><not><contains string="${o}" substring="&quot;has &quot;q&quot; and space&quot;"/></not></condition></fail>
   </target>
 
+  <!-- For tools/ttytest.py (ANT on a terminal). -->
+  <target name="tty-dcl">
+    <exec executable="show"><arg value="time"/></exec>
+    <exec executable="write"><arg value="sys$output"/><arg value="&quot;DCL on a terminal&quot;"/></exec>
+  </target>
+  <target name="wait-java">
+    <echo message="Waiting in Java"/>
+    <sleep seconds="300"/>
+  </target>
+  <target name="wait-dcl">
+    <echo message="Waiting in DCL"/>
+    <exec executable="wait"><arg value="00:05:00"/></exec>
+  </target>
+
   <target name="failing">
     <fail message="intentional failure"/>
   </target>
