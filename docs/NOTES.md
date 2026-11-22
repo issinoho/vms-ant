@@ -173,3 +173,9 @@ classpath needs distinct real directories. After all of that, 2 of 408 files in
 the output tree had a second version: the JUnit plain and XML reports, written
 in place by two test runs. Jars and classes did not (Ant writes them to a new
 file); `clean` removes every version (N2).
+
+Later (same day): JUnit 5.10.2 (`<junitlauncher>`, forked) passes with the platform
+jars from `-lib out/junit5`, and again with them in a test home's `.ant/lib`
+(`ANT_OPTS=-Duser.home=out/home`; without them there neither the Jupiter test
+compiles nor the task loads). As on any platform, the forked test JVM needs the
+engine jars on the task's classpath. PROJECTS 7/7.

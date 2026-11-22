@@ -122,5 +122,54 @@
     <fail message="long classpath: ${cp}"><condition><not><matches string="${cp}" pattern="classpath length [0-9]{5}"/></not></condition></fail>
   </target>
 
+  <!-- JUnit 5: the platform jars must be on Ant's own classpath, so
+       TEST_PROJECTS.COM runs "junit5" with -lib out/junit5, and again with
+       them in a test home's .ant/lib. -->
+  <target name="junit5-deps">
+    <mkdir dir="${out}/junit5"/>
+    <macrodef name="central5">
+      <attribute name="path"/><attribute name="name"/>
+      <sequential>
+        <get src="${central}/@{path}/@{name}" dest="${out}/junit5/@{name}" skipexisting="true"/>
+        <get src="${central}/@{path}/@{name}.sha1" dest="${out}/junit5-sums/@{name}.sha1" skipexisting="true"/>
+        <checksum file="${out}/junit5/@{name}" algorithm="SHA-1" todir="${out}/junit5-sums"
+                  fileext=".sha1" verifyproperty="ok5.@{name}"/>
+        <fail message="@{name}: SHA-1 mismatch"><condition><isfalse value="${ok5.@{name}}"/></condition></fail>
+      </sequential>
+    </macrodef>
+    <mkdir dir="${out}/junit5-sums"/>
+    <central5 path="org/junit/platform/junit-platform-launcher/1.10.2" name="junit-platform-launcher-1.10.2.jar"/>
+    <central5 path="org/junit/platform/junit-platform-engine/1.10.2" name="junit-platform-engine-1.10.2.jar"/>
+    <central5 path="org/junit/platform/junit-platform-commons/1.10.2" name="junit-platform-commons-1.10.2.jar"/>
+    <central5 path="org/junit/jupiter/junit-jupiter-api/5.10.2" name="junit-jupiter-api-5.10.2.jar"/>
+    <central5 path="org/junit/jupiter/junit-jupiter-engine/5.10.2" name="junit-jupiter-engine-5.10.2.jar"/>
+    <central5 path="org/opentest4j/opentest4j/1.3.0" name="opentest4j-1.3.0.jar"/>
+    <central5 path="org/apiguardian/apiguardian-api/1.1.2" name="apiguardian-api-1.1.2.jar"/>
+  </target>
+
+  <target name="junit5" depends="compile">
+    <mkdir dir="${out}/build/test5-classes"/>
+    <javac srcdir="src/test5" destdir="${out}/build/test5-classes" includeantruntime="true"
+           fork="true" source="8" target="8">
+      <classpath><pathelement location="${out}/build/classes"/></classpath>
+    </javac>
+    <mkdir dir="${out}/build/reports5"/>
+    <junitlauncher haltOnFailure="true" printSummary="true">
+      <!-- A forked test JVM gets only the jars Ant needs: the test engine
+           goes on the task's classpath (as Ant's manual says). -->
+      <classpath>
+        <pathelement location="${out}/build/classes"/>
+        <pathelement location="${out}/build/test5-classes"/>
+        <fileset dir="${out}/junit5" includes="*.jar"/>
+      </classpath>
+      <testclasses outputdir="${out}/build/reports5">
+        <fileset dir="${out}/build/test5-classes" includes="**/*Test.class"/>
+        <fork dir="${basedir}"/>
+        <listener type="legacy-xml"/>
+      </testclasses>
+    </junitlauncher>
+    <fail message="no JUnit 5 report"><condition><not><available file="${out}/build/reports5/TEST-com.example.WordsJupiterTest.xml"/></not></condition></fail>
+  </target>
+
   <target name="all" depends="clean,test,javadoc,dist,parallel"/>
 </project>

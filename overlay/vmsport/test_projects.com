@@ -67,9 +67,35 @@ $ gosub has
 $ ok = found .and. st
 $ gosub result
 $!
+$! JUnit 5: the platform jars from -lib, then from a test home's .ant/lib.
+$ t = "JUnit 5 (junitlauncher, forked) with -lib"
+$ n = 5
+$ pipe ant junit5-deps > t5.out
+$ pipe ant -lib out/junit5 junit5 > t5.out
+$ st = $status
+$ want = "Tests run: 2, Failures: 0, Aborted: 0"
+$ gosub has
+$ ok = found .and. st
+$ gosub result
+$ t = "JUnit 5 with the jars in ~/.ant/lib (a test home)"
+$ n = 6
+$ thome = proj - "]" + ".OUT.HOME]"
+$ if f$search(proj - "]" + ".OUT]HOME.DIR") .eqs. "" then create/directory 'thome'
+$ tlib = thome - "]" + ".^.ANT.LIB]"
+$ if f$search(thome - "]" + ".^.ANT]LIB.DIR") .eqs. "" then create/directory 'tlib'
+$ copy/nolog [.out.junit5]*.jar 'tlib'
+$ ant_opts = "-Duser.home=out/home"
+$ pipe ant junit5 > t6.out
+$ st = $status
+$ delete/symbol/local ant_opts
+$ want = "Tests run: 2, Failures: 0, Aborted: 0"
+$ gosub has
+$ ok = found .and. st
+$ gosub result
+$!
 $! Two runs at once: separate batch jobs, each with its own out directory.
 $ t = "two Ant runs at once (batch jobs)"
-$ n = 5
+$ n = 7
 $ q = "SYS$BATCH"
 $ i = 1
 $ sub_loop:
@@ -81,7 +107,7 @@ $   i = i + 1
 $   if i .le. 2 then goto sub_loop
 $ synchronize/entry='entry1'
 $ synchronize/entry='entry2'
-$ copy job1.log,job2.log t5.out
+$ copy job1.log,job2.log t7.out
 $ ok = 1
 $ i = 1
 $ job_loop:
@@ -90,7 +116,7 @@ $   search/nooutput 'fil' "JOB: BUILD OK"
 $   if $severity .ne. 1 then ok = 0
 $   i = i + 1
 $   if i .le. 2 then goto job_loop
-$ fil = "t5.out"
+$ fil = "t7.out"
 $ st = ok
 $ gosub result
 $!
