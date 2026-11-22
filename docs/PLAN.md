@@ -33,6 +33,10 @@ Exit: the user agrees D1-D5.
 - Smoke test (TEST_SMOKE.COM): the probe's targets as PASS/FAIL, plus ANT on a
   terminal and under the TRADITIONAL parse style.
 
+Status 2026-11-22: done on x86-64 except ANT on a terminal. Tooling, ANT.EXE
+(derived from vms-maven's mvn.c), ANTDCL.EXE (N8, N9), patches 0001-0005;
+TEST_SMOKE.COM 15/15, twice, the second after BUILD CLEAN. IA64 still unreachable.
+
 ## Phase 2: Ant on real builds
 
 - A multi-file project: javac with a long classpath (command-line limits, D5.2),

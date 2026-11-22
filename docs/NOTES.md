@@ -85,3 +85,45 @@ On OpenVMS Ant passes a forked JVM's (and javac's) arguments in a file named by
 `-V`, a switch of HP's JVM. VSI's JAVA.EXE still accepts it, but splits each line
 at spaces: a line `Opt File` arrived as two arguments `[Opt] [File]`. javac by full
 path through `-V` compiled the probe (its arguments have no spaces).
+
+## N8. Exit values of a DCL procedure, and a start-up race (x86-64, 2026-11-22)
+
+`<exec executable="x.com">` (the VM launcher: VSI Java passes the procedure to the
+C RTL's execv, `JAVA$EXEC_TRACE` shows it) gives these exit values:
+
+| Procedure ends with | exitValue |
+|---|---|
+| `$ EXIT 1`, `$ EXIT %X10000001` | 0 |
+| `$ EXIT %X1035A002 + 8 * n` (the C RTL's code for exit(n)) | n |
+| `$ EXIT 3` | 3 |
+| `$ EXIT %X00018290` (`%DIRECT-W-NOFILES`) | 144 |
+| `$ EXIT %X00038090` | 220 |
+| end of file, or a bare `$ EXIT`, after a successful command | 1 |
+
+So only an explicit `EXIT 1` reads as 0; a procedure that just ends after a success
+gives 1. **And starting a procedure fails at random**: DCL cannot open its input,
+`%DCL-E-OPENIN, error opening _MBAnnnn:[<default dir>].; as input`,
+`-RMS-F-DEV`, exit value 196. A two-line procedure (WRITE, EXIT 1) started 15 times
+in a row failed 9 times, with or without `inputstring=""`; the same contents never
+mattered. Images (JAVA.EXE) started the same way never failed. VmsCommandLauncher
+always runs a procedure, so every DCL `<exec>` is hit.
+
+Consequence for D5.4: VmsCommandLauncher runs its procedure through ANTDCL.EXE,
+an image beside ANT.EXE that Java starts reliably; it runs the procedure with
+LIB$SPAWN and returns 0 for a success status, else a non-zero Unix code. To find
+out: whether the race is the C RTL's (execv of a procedure from a plain C program)
+or VSI Java's, for a report to VSI.
+
+## N9. DCL output in Java's pipe: no line ends, and an empty record ends it
+
+A procedure that ANTDCL.EXE (first version) ran with its output going straight to
+the pipe Java reads (the mailbox `getname(1)` named) reached Ant without line ends
+(`SYS$LOGIN` line and the next text joined), and `SHOW LOGICAL` with no argument,
+which starts with an empty line, gave no output at all: VSI's C RTL reads a
+zero-length mailbox record as end of file. The same procedure through
+`PIPE antdcl x.com | SEARCH SYS$PIPE ...` was complete. (Output to a file through
+PIPE also failed: getname() gave `SYS$OUTPUT:.;`, which LIB$SPAWN refuses.)
+ANTDCL.EXE now gives the subprocess a mailbox of its own and copies each record
+to its standard output with a line end, an empty record as an empty line; the end
+is an end-of-file it writes itself when the subprocess has ended (one DCL may
+write before that is skipped).

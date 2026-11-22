@@ -1,6 +1,7 @@
 # Decisions
 
-D1-D5 are **proposed** (2026-11-22), for the user to agree before Phase 1.
+D1-D5 agreed with the user 2026-11-22 ("Yes agreed"). The question at the end of D5
+is still open.
 
 ## D1. Ant 1.10.18 on the nodes' Java 8; the Alpha later, with 1.9.16
 
@@ -45,6 +46,12 @@ so it is the right default, as on every other platform. Patches to ant.jar:
 4. `VmsCommandLauncher` (`vmlauncher="false"`, for DCL verbs and procedures): quote
    each argument and each DEFINE value, and end the procedure by turning `$STATUS`
    into 0 for success, so rule 3 holds for it too (N5, N6).
+   As built (Phase 1): arguments are quoted only for white space or `!`, and one
+   that has a `"` already is taken as written for DCL, so qualifiers (`/SIZE`) and
+   DCL strings (`<arg value='"Two words"'/>`) still work; DEFINE values are always
+   quoted. The procedure runs through ANTDCL.EXE (`-Dant.openvms.dclrunner`, set by
+   ANT.EXE), because starting a procedure straight from VSI's JVM fails at random
+   (N8) and its output reaches Java without line ends (N9).
 5. `Execute.getVMSLogicals`: parse today's SHOW LOGICAL layout (N6).
 
 Open for the user: whether `<exec executable="mms">` (a bare name that is a DCL verb

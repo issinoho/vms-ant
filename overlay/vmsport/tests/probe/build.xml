@@ -210,6 +210,98 @@
     <echo message="java exit 0/1/2/44 -> ${r0}/${r1}/${r2}/${r44}; DCL success -> ${d1}"/>
   </target>
 
+  <!-- Which DCL exit status gives which Process.exitValue() (for patch 4). -->
+  <macrodef name="dclexit">
+    <attribute name="st"/>
+    <sequential>
+      <echo file="${out}/ex.com" message="$ exit @{st}${line.separator}"/>
+      <exec executable="${out}/ex.com" resultproperty="rc.@{st}" failonerror="false"/>
+      <echo message="DCL exit @{st} -> exitValue ${rc.@{st}}"/>
+    </sequential>
+  </macrodef>
+  <target name="dcl-exits">
+    <mkdir dir="${out}"/>
+    <dclexit st="1"/><dclexit st="%X10000001"/><dclexit st="%X00000003"/>
+    <dclexit st="%X0035A001"/><dclexit st="%X1035A001"/><dclexit st="%X1035A00A"/>
+    <dclexit st="%X1035A01A"/><dclexit st="%X1035A3FA"/><dclexit st="%X00018290"/>
+    <dclexit st="%X10018290"/><dclexit st="%X00038090"/><dclexit st="44"/>
+  </target>
+
+  <macrodef name="dclend">
+    <attribute name="name"/><attribute name="body"/>
+    <sequential>
+      <echo file="${out}/@{name}.com" message="@{body}"/>
+      <exec executable="${out}/@{name}.com" resultproperty="rc.@{name}" failonerror="false"/>
+      <echo message="@{name} -> exitValue ${rc.@{name}}"/>
+    </sequential>
+  </macrodef>
+  <target name="dcl-ends">
+    <mkdir dir="${out}"/>
+    <dclend name="eof_after_write" body="$ write sys$output &quot;x&quot;${line.separator}"/>
+    <dclend name="exit_bare_after_write" body="$ write sys$output &quot;x&quot;${line.separator}$ exit${line.separator}"/>
+    <dclend name="exit_status_after_write" body="$ write sys$output &quot;x&quot;${line.separator}$ exit $status${line.separator}"/>
+    <dclend name="eof_after_assign" body="$ x = 1${line.separator}"/>
+    <dclend name="eof_after_dirfail" body="$ set noon${line.separator}$ directory nosuch.file${line.separator}"/>
+    <dclend name="exit_after_dirfail" body="$ set noon${line.separator}$ directory nosuch.file${line.separator}$ exit $status${line.separator}"/>
+    <dclend name="mapped_ok" body="$ write sys$output &quot;x&quot;${line.separator}$ st = $status${line.separator}$ if st then exit 1${line.separator}$ exit %X1035A002 + 8 * (st .and. 255)${line.separator}"/>
+    <dclend name="mapped_fail" body="$ set noon${line.separator}$ directory nosuch.file${line.separator}$ st = $status${line.separator}$ if st then exit 1${line.separator}$ exit %X1035A002 + 8 * (st .and. 255)${line.separator}"/>
+  </target>
+
+  <target name="dcl-race">
+    <mkdir dir="${out}"/>
+    <echo file="${out}/race.com" message="$ write sys$output &quot;race ok&quot;${line.separator}$ exit 1${line.separator}"/>
+    <exec executable="${out}/race.com" resultproperty="r1" failonerror="false"/>
+    <exec executable="${out}/race.com" resultproperty="r2" failonerror="false"/>
+    <exec executable="${out}/race.com" resultproperty="r3" failonerror="false"/>
+    <exec executable="${out}/race.com" resultproperty="r4" failonerror="false"/>
+    <exec executable="${out}/race.com" resultproperty="r5" failonerror="false"/>
+    <exec executable="${out}/race.com" resultproperty="r6" failonerror="false"/>
+    <exec executable="${out}/race.com" resultproperty="r7" failonerror="false"/>
+    <exec executable="${out}/race.com" resultproperty="r8" failonerror="false"/>
+    <exec executable="${out}/race.com" resultproperty="r9" failonerror="false"/>
+    <exec executable="${out}/race.com" resultproperty="r10" failonerror="false"/>
+    <exec executable="${out}/race.com" resultproperty="i1" inputstring="" failonerror="false"/>
+    <exec executable="${out}/race.com" resultproperty="i2" inputstring="" failonerror="false"/>
+    <exec executable="${out}/race.com" resultproperty="i3" inputstring="" failonerror="false"/>
+    <exec executable="${out}/race.com" resultproperty="i4" inputstring="" failonerror="false"/>
+    <exec executable="${out}/race.com" resultproperty="i5" inputstring="" failonerror="false"/>
+    <exec executable="${javaexe}" resultproperty="j1" failonerror="false"><arg value="-version"/></exec>
+    <exec executable="${javaexe}" resultproperty="j2" failonerror="false"><arg value="-version"/></exec>
+    <exec executable="${javaexe}" resultproperty="j3" failonerror="false"><arg value="-version"/></exec>
+    <echo message="RACE plain: ${r1} ${r2} ${r3} ${r4} ${r5} ${r6} ${r7} ${r8} ${r9} ${r10}"/>
+    <echo message="RACE inputstring: ${i1} ${i2} ${i3} ${i4} ${i5}"/>
+    <echo message="RACE image: ${j1} ${j2} ${j3}"/>
+  </target>
+
+  <!-- Ant's own environment reader, step by step (patch 0005). -->
+  <target name="env-debug">
+    <script language="javascript"><![CDATA[
+      var E = Java.type("org.apache.tools.ant.taskdefs.Execute");
+      var BAOS = Java.type("java.io.ByteArrayOutputStream");
+      var PSH = Java.type("org.apache.tools.ant.taskdefs.PumpStreamHandler");
+      var out = new BAOS();
+      var exe = new E(new PSH(out));
+      exe.setCommandline(Java.to(["show", "logical", "sys$login"], "java.lang.String[]"));
+      exe.setNewenvironment(true);
+      var rc = exe.execute();
+      print("rc " + rc + " out[" + out.toString() + "]");
+      var out2 = new BAOS();
+      var exe2 = new E(new PSH(out2));
+      exe2.setCommandline(Java.to(["show", "logical"], "java.lang.String[]"));
+      exe2.setNewenvironment(true);
+      print("full rc " + exe2.execute() + " bytes " + out2.size());
+      var txt = out2.toString();
+      print("head[" + txt.substring(0, Math.min(600, txt.length())) + "]");
+      var BR = Java.type("java.io.BufferedReader"), SR = Java.type("java.io.StringReader");
+      var meth = E.class.getDeclaredMethod("getVMSLogicals", BR.class);
+      meth.setAccessible(true);
+      var parsed = meth.invoke(null, new BR(new SR(txt)));
+      print("parsed " + parsed.size() + " SYS$LOGIN=" + parsed.get("SYS$LOGIN"));
+      var m = E.getEnvironmentVariables();
+      print("getEnvironmentVariables size " + m.size() + " SYS$LOGIN=" + m.get("SYS$LOGIN"));
+    ]]></script>
+  </target>
+
   <target name="javac-path">
     <mkdir dir="${out}/pclasses"/>
     <javac srcdir="src" destdir="${out}/pclasses" includeantruntime="false" fork="true"

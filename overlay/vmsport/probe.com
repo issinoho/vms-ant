@@ -24,6 +24,8 @@ $   define/nolog JAVA$DELETE_ALL_VERSIONS TRUE
 $   define/nolog JAVA$RENAME_ALL_VERSIONS TRUE
 $   define/nolog JAVA$CREATE_DIR_WITH_OWNER_DELETE TRUE
 $ endif
+$! P4 = "TRACE": VSI Java's JAVA$EXEC_TRACE (every process Java starts).
+$ if p4 .eqs. "TRACE" then define/nolog JAVA$EXEC_TRACE TRUE
 $ ant = java + " ""-Dant.home=''uhome'"" -classpath ''uhome'/lib/ant-launcher.jar ""org.apache.tools.ant.launch.Launcher"""
 $ targets = "version,info,clean,files,archives,javac,javac-fork,jar,java,java-fork,java-fork-exit,exec,exec-fail,env,get,failing,files"
 $ if p1 .nes. "" then targets = p1

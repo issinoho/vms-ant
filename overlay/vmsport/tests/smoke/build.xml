@@ -1,0 +1,203 @@
+<?xml version="1.0"?>
+<!-- Smoke test of the port (TEST_SMOKE.COM runs one target per Ant run).
+     Each target checks its own result with <fail>; NOTES N-numbers say what
+     each one guards. -->
+<project name="smoke" default="info" basedir=".">
+  <property name="out" location="out"/>
+  <property name="javaexe" location="${java.home}/bin/java.exe"/>
+
+  <target name="clean">
+    <delete dir="${out}"/>
+    <fail message="out still there"><condition><available file="${out}"/></condition></fail>
+  </target>
+
+  <target name="info">
+    <echo message="${ant.version} on ${os.name} ${os.arch} ${os.version}, Java ${java.version}"/>
+    <echo message="ant.home=${ant.home}"/>
+    <echo message="from.args=${from.args} smoke.prop=${smoke.prop}"/>
+    <condition property="isvms"><os family="openvms"/></condition>
+    <fail unless="isvms" message="os family openvms not detected"/>
+  </target>
+
+  <!-- Properties from the command line, ANT_ARGS and ANT_OPTS keep their case. -->
+  <target name="props">
+    <echo message="smoke.prop=${smoke.prop} from.args=${from.args} from.opts=${from.opts}"/>
+    <fail message="smoke.prop=${smoke.prop}"><condition><not><equals arg1="${smoke.prop}" arg2="MixedValue"/></not></condition></fail>
+    <fail message="from.args=${from.args}"><condition><not><equals arg1="${from.args}" arg2="FromArgs"/></not></condition></fail>
+    <fail message="from.opts=${from.opts}"><condition><not><equals arg1="${from.opts}" arg2="FromOpts"/></not></condition></fail>
+  </target>
+
+  <!-- N2: rewritten files and a directory delete. Run twice. -->
+  <target name="files">
+    <mkdir dir="${out}/files/a/b"/>
+    <echo file="${out}/files/MixedCase.txt" message="one${line.separator}two${line.separator}"/>
+    <copy file="${out}/files/MixedCase.txt" tofile="${out}/files/a/b/MixedCase.txt" overwrite="true"/>
+    <copy file="${out}/files/MixedCase.txt" tofile="${out}/files/a/b/MixedCase.txt" overwrite="true"/>
+    <move file="${out}/files/a/b/MixedCase.txt" tofile="${out}/files/a/Moved.txt"/>
+    <replace file="${out}/files/a/Moved.txt" token="two" value="TWO"/>
+    <loadfile property="moved" srcFile="${out}/files/a/Moved.txt"/>
+    <fail message="replace"><condition><not><contains string="${moved}" substring="TWO"/></not></condition></fail>
+    <pathconvert property="listing" pathsep=",">
+      <fileset dir="${out}/files"/>
+      <map from="${out}${file.separator}" to=""/>
+    </pathconvert>
+    <echo message="listing=${listing}"/>
+    <fail message="case or move lost: ${listing}">
+      <condition><not><and>
+        <contains string="${listing}" substring="MixedCase.txt" casesensitive="true"/>
+        <contains string="${listing}" substring="Moved.txt" casesensitive="true"/>
+      </and></not></condition>
+    </fail>
+    <delete dir="${out}/files/a"/>
+    <fail message="delete dir left files"><condition><available file="${out}/files/a"/></condition></fail>
+  </target>
+
+  <target name="archives">
+    <mkdir dir="${out}/arc/src"/>
+    <echo file="${out}/arc/src/x.txt" message="x"/>
+    <echo file="${out}/arc/src/Deep.Name.txt" message="y"/>
+    <zip destfile="${out}/arc/a.zip" basedir="${out}/arc/src"/>
+    <tar destfile="${out}/arc/a.tar.gz" basedir="${out}/arc/src" compression="gzip"/>
+    <unzip src="${out}/arc/a.zip" dest="${out}/arc/unz"/>
+    <untar src="${out}/arc/a.tar.gz" dest="${out}/arc/unt" compression="gzip"/>
+    <fail message="unzip/untar">
+      <condition><not><and>
+        <available file="${out}/arc/unz/Deep.Name.txt"/>
+        <available file="${out}/arc/unt/Deep.Name.txt"/>
+        <filesmatch file1="${out}/arc/src/x.txt" file2="${out}/arc/unt/x.txt"/>
+      </and></not></condition>
+    </fail>
+  </target>
+
+  <target name="javac">
+    <mkdir dir="${out}/classes"/>
+    <javac srcdir="src" destdir="${out}/classes" includeantruntime="false" source="8" target="8"/>
+    <fail message="no class"><condition><not><available file="${out}/classes/hello/Hello.class"/></not></condition></fail>
+  </target>
+
+  <target name="jar" depends="javac">
+    <jar destfile="${out}/hello.jar" basedir="${out}/classes">
+      <manifest><attribute name="Main-Class" value="hello.Hello"/></manifest>
+    </jar>
+  </target>
+
+  <target name="java" depends="jar">
+    <java classname="hello.Hello" classpath="${out}/hello.jar" outputproperty="o" failonerror="true">
+      <arg value="MixedCase Arg"/>
+    </java>
+    <echo message="${o}"/>
+    <fail message="in-VM java"><condition><not><contains string="${o}" substring="[MixedCase Arg]"/></not></condition></fail>
+  </target>
+
+  <!-- N4, N7 (patches 0001, 0002): forked javac with the default executable. -->
+  <target name="javac-fork">
+    <mkdir dir="${out}/fclasses"/>
+    <javac srcdir="src" destdir="${out}/fclasses" includeantruntime="false" fork="true" source="8" target="8"/>
+    <fail message="no class"><condition><not><available file="${out}/fclasses/hello/Hello.class"/></not></condition></fail>
+  </target>
+
+  <!-- N4, N5, N7 (patches 0001-0003): forked java, arguments and exit codes. -->
+  <target name="java-fork" depends="jar">
+    <java classname="hello.Hello" classpath="${out}/hello.jar" fork="true" failonerror="true" outputproperty="o">
+      <arg value="MixedCase Arg"/><arg value="a/b"/><arg value="it's &quot;q&quot;"/><arg value=""/>
+    </java>
+    <echo message="${o}"/>
+    <fail message="forked java: arguments">
+      <condition><not><and>
+        <contains string="${o}" substring="[MixedCase Arg]"/>
+        <contains string="${o}" substring="[a/b]"/>
+        <contains string="${o}" substring="[it's &quot;q&quot;]"/>
+        <contains string="${o}" substring="[]"/>
+      </and></not></condition>
+    </fail>
+    <java jar="${out}/hello.jar" fork="true" resultproperty="r3" failonerror="false"><arg value="exit3"/></java>
+    <java jar="${out}/hello.jar" fork="true" resultproperty="r1" failonerror="false"><arg value="exit1"/></java>
+    <echo message="exit 3 -> ${r3}, exit 1 -> ${r1}"/>
+    <fail message="exit codes ${r3} ${r1}">
+      <condition><not><and>
+        <equals arg1="${r3}" arg2="3"/><equals arg1="${r1}" arg2="1"/>
+        <isfailure code="${r1}"/><isfailure code="${r3}"/><not><isfailure code="0"/></not>
+      </and></not></condition>
+    </fail>
+  </target>
+
+  <!-- A bare JDK tool name: ANT.EXE's JAVA$EXEC_MAPPING. -->
+  <target name="exec-image">
+    <exec executable="java" failonerror="true" errorproperty="e"><arg value="-version"/></exec>
+    <echo message="${e}"/>
+    <fail message="java -version"><condition><not><contains string="${e}" substring="version"/></not></condition></fail>
+  </target>
+
+  <!-- N6, N8 (patch 0004, ANTDCL.EXE): DCL verbs, quoting, qualifiers, status. -->
+  <target name="exec-dcl">
+    <exec executable="write" vmlauncher="false" outputproperty="o" failonerror="true">
+      <arg value="sys$output"/><arg value="&quot;Exec Works, Mixed Case!&quot;"/>
+    </exec>
+    <echo message="[${o}]"/>
+    <fail message="write"><condition><not><equals arg1="${o}" arg2="Exec Works, Mixed Case!"/></not></condition></fail>
+    <exec executable="directory" vmlauncher="false" outputproperty="d" failonerror="true">
+      <arg value="/nohead"/><arg value="/notrail"/><arg value="build.xml"/>
+    </exec>
+    <echo message="[${d}]"/>
+    <fail message="qualifiers"><condition><not><contains string="${d}" substring="build.xml" casesensitive="false"/></not></condition></fail>
+    <exec executable="directory" vmlauncher="false" resultproperty="f" failonerror="false">
+      <arg value="nosuch.file"/>
+    </exec>
+    <echo message="failing DIRECTORY -> ${f}"/>
+    <fail message="a failing DCL command gave ${f}"><condition><not><isfailure code="${f}"/></not></condition></fail>
+    <exec executable="${javaexe}" vmlauncher="false" outputproperty="j" failonerror="true">
+      <arg value="-cp"/><arg value="${out}/hello.jar"/><arg value="hello.Hello"/><arg value="MixedCase Arg"/>
+    </exec>
+    <echo message="${j}"/>
+    <fail message="a Unix path through DCL"><condition><not><contains string="${j}" substring="[MixedCase Arg]"/></not></condition></fail>
+  </target>
+
+  <!-- N9: a procedure's lines, an empty one among them, arrive as lines; a
+       procedure given by its Unix path runs with @. -->
+  <target name="exec-dcl-lines">
+    <mkdir dir="${out}"/>
+    <echo file="${out}/lines.com">$ write sys$output "one"
+$ write sys$output ""
+$ write sys$output "three"
+</echo>
+    <exec executable="${out}/lines.com" vmlauncher="false" outputproperty="o" failonerror="true"/>
+    <echo message="[${o}]"/>
+    <fail message="lines: [${o}]">
+      <condition><not><equals arg1="${o}" arg2="one${line.separator}${line.separator}three"/></not></condition>
+    </fail>
+  </target>
+
+  <!-- N8: DCL started 20 times in a row (the start-up race). -->
+  <target name="exec-dcl-repeat">
+    <macrodef name="once">
+      <attribute name="n"/>
+      <sequential>
+        <exec executable="write" vmlauncher="false" outputproperty="o@{n}" failonerror="true">
+          <arg value="sys$output"/><arg value="&quot;run @{n}&quot;"/>
+        </exec>
+        <fail message="run @{n}: [${o@{n}}]"><condition><not><equals arg1="${o@{n}}" arg2="run @{n}"/></not></condition></fail>
+      </sequential>
+    </macrodef>
+    <once n="1"/><once n="2"/><once n="3"/><once n="4"/><once n="5"/>
+    <once n="6"/><once n="7"/><once n="8"/><once n="9"/><once n="10"/>
+    <once n="11"/><once n="12"/><once n="13"/><once n="14"/><once n="15"/>
+    <once n="16"/><once n="17"/><once n="18"/><once n="19"/><once n="20"/>
+  </target>
+
+  <!-- N6 (patches 0004, 0005): the environment, both ways. -->
+  <target name="env">
+    <property environment="env"/>
+    <echo message="env.SYS$LOGIN=${env.SYS$LOGIN}"/>
+    <fail message="no environment"><condition><not><isset property="env.SYS$LOGIN"/></not></condition></fail>
+    <exec executable="show" vmlauncher="false" outputproperty="o" failonerror="true">
+      <env key="ANT_SMOKE_VAR" value="has &quot;q&quot; and space"/>
+      <arg value="logical"/><arg value="ant_smoke_var"/>
+    </exec>
+    <echo message="[${o}]"/>
+    <fail message="env value"><condition><not><contains string="${o}" substring="&quot;has &quot;q&quot; and space&quot;"/></not></condition></fail>
+  </target>
+
+  <target name="failing">
+    <fail message="intentional failure"/>
+  </target>
+</project>
