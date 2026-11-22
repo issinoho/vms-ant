@@ -1,0 +1,219 @@
+<?xml version="1.0"?>
+<!-- Phase 0 probe: one target per area where OpenVMS may differ. Each target
+     checks its own result with <fail>; PROBE.COM runs them one at a time. -->
+<project name="probe" default="info" basedir=".">
+  <property name="out" location="out"/>
+
+  <target name="info">
+    <echo message="ant.version=${ant.version}"/>
+    <echo message="os.name=${os.name} os.arch=${os.arch} os.version=${os.version}"/>
+    <echo message="java.version=${java.version} java.home=${java.home}"/>
+    <echo message="basedir=${basedir} user.home=${user.home} user.dir=${user.dir}"/>
+    <echo message="file.separator=${file.separator} path.separator=${path.separator}"/>
+    <echo message="ant.home=${ant.home} ant.java.version=${ant.java.version}"/>
+    <echo message="ant.library.dir=${ant.library.dir}"/>
+    <echo message="ant.core.lib=${ant.core.lib}"/>
+    <condition property="isvms"><os family="openvms"/></condition>
+    <fail unless="isvms" message="os family openvms not detected"/>
+  </target>
+
+  <target name="clean">
+    <delete dir="${out}"/>
+    <fail message="out still there"><condition><available file="${out}"/></condition></fail>
+  </target>
+
+  <target name="files">
+    <mkdir dir="${out}/files/a/b"/>
+    <echo file="${out}/files/MixedCase.txt" message="one${line.separator}two${line.separator}"/>
+    <copy todir="${out}/files/a/b"><fileset dir="${out}/files" includes="*.txt"/></copy>
+    <copy file="${out}/files/MixedCase.txt" tofile="${out}/files/a/b/MixedCase.txt" overwrite="true"/>
+    <copy file="${out}/files/MixedCase.txt" tofile="${out}/files/a/b/MixedCase.txt" overwrite="true"/>
+    <move file="${out}/files/a/b/MixedCase.txt" tofile="${out}/files/a/Moved.txt"/>
+    <touch file="${out}/files/touched.dat"/>
+    <replace file="${out}/files/a/Moved.txt" token="two" value="TWO"/>
+    <loadfile property="moved" srcFile="${out}/files/a/Moved.txt"/>
+    <echo message="moved=[${moved}]"/>
+    <fail message="replace failed"><condition><not><contains string="${moved}" substring="TWO"/></not></condition></fail>
+    <pathconvert property="listing" pathsep=",">
+      <fileset dir="${out}/files"/>
+      <map from="${out}${file.separator}" to=""/>
+    </pathconvert>
+    <echo message="listing=${listing}"/>
+    <fail message="case or move lost: ${listing}">
+      <condition><not><and>
+        <contains string="${listing}" substring="MixedCase.txt" casesensitive="true"/>
+        <contains string="${listing}" substring="Moved.txt" casesensitive="true"/>
+      </and></not></condition>
+    </fail>
+    <delete dir="${out}/files/a"/>
+    <fail message="delete dir left files"><condition><available file="${out}/files/a"/></condition></fail>
+  </target>
+
+  <target name="archives">
+    <mkdir dir="${out}/arc/src"/>
+    <echo file="${out}/arc/src/x.txt" message="x"/>
+    <echo file="${out}/arc/src/Deep.Name.txt" message="y"/>
+    <zip destfile="${out}/arc/a.zip" basedir="${out}/arc/src"/>
+    <tar destfile="${out}/arc/a.tar.gz" basedir="${out}/arc/src" compression="gzip"/>
+    <unzip src="${out}/arc/a.zip" dest="${out}/arc/unz"/>
+    <untar src="${out}/arc/a.tar.gz" dest="${out}/arc/unt" compression="gzip"/>
+    <checksum file="${out}/arc/a.zip" property="zipsum" algorithm="SHA-256"/>
+    <echo message="zip sha256 ${zipsum}"/>
+    <fail message="unzip/untar">
+      <condition><not><and>
+        <available file="${out}/arc/unz/Deep.Name.txt"/>
+        <available file="${out}/arc/unt/Deep.Name.txt"/>
+        <filesmatch file1="${out}/arc/src/x.txt" file2="${out}/arc/unt/x.txt"/>
+      </and></not></condition>
+    </fail>
+  </target>
+
+  <target name="javac">
+    <mkdir dir="${out}/classes"/>
+    <javac srcdir="src" destdir="${out}/classes" includeantruntime="false" source="8" target="8"/>
+    <fail message="no class"><condition><not><available file="${out}/classes/hello/Hello.class"/></not></condition></fail>
+  </target>
+
+  <target name="javac-fork">
+    <mkdir dir="${out}/fclasses"/>
+    <javac srcdir="src" destdir="${out}/fclasses" includeantruntime="false" fork="true" source="8" target="8"/>
+    <fail message="no class"><condition><not><available file="${out}/fclasses/hello/Hello.class"/></not></condition></fail>
+  </target>
+
+  <target name="jar" depends="javac">
+    <jar destfile="${out}/hello.jar" basedir="${out}/classes">
+      <manifest><attribute name="Main-Class" value="hello.Hello"/></manifest>
+    </jar>
+    <!-- again, forced: rewriting an existing jar -->
+    <touch file="${out}/classes/hello/Hello.class"/>
+    <jar destfile="${out}/hello.jar" basedir="${out}/classes">
+      <manifest><attribute name="Main-Class" value="hello.Hello"/></manifest>
+    </jar>
+  </target>
+
+  <target name="java" depends="jar">
+    <java classname="hello.Hello" classpath="${out}/hello.jar" outputproperty="jout" failonerror="true">
+      <arg value="MixedCase Arg"/><arg value="two"/>
+    </java>
+    <echo message="${jout}"/>
+    <fail message="in-VM java: arguments wrong"><condition><not><contains string="${jout}" substring="[MixedCase Arg]"/></not></condition></fail>
+  </target>
+
+  <target name="java-fork" depends="jar">
+    <java classname="hello.Hello" classpath="${out}/hello.jar" fork="true" outputproperty="fout" resultproperty="frc">
+      <arg value="MixedCase Arg"/><arg value="two"/>
+    </java>
+    <echo message="rc=${frc}${line.separator}${fout}"/>
+    <fail message="forked java: arguments wrong"><condition><not><contains string="${fout}" substring="[MixedCase Arg]"/></not></condition></fail>
+  </target>
+
+  <target name="java-fork-exit" depends="jar">
+    <java jar="${out}/hello.jar" fork="true" resultproperty="xrc"><arg value="exit3"/></java>
+    <echo message="exit rc=${xrc}"/>
+    <fail message="exit code ${xrc}, wanted 3"><condition><not><equals arg1="${xrc}" arg2="3"/></not></condition></fail>
+  </target>
+
+  <target name="exec">
+    <exec executable="write" outputproperty="eout" resultproperty="erc">
+      <arg value="sys$output"/><arg value="&quot;Exec Works&quot;"/>
+    </exec>
+    <echo message="rc=${erc} out=[${eout}]"/>
+    <fail message="exec output"><condition><not><contains string="${eout}" substring="Exec Works"/></not></condition></fail>
+  </target>
+
+  <target name="exec-fail">
+    <exec executable="directory" resultproperty="frc" failonerror="false">
+      <arg value="nosuchfile.nothere"/>
+    </exec>
+    <echo message="failing exec rc=${frc}"/>
+    <fail message="a failing command gave rc 0"><condition><equals arg1="${frc}" arg2="0"/></condition></fail>
+  </target>
+
+  <target name="env">
+    <property environment="env"/>
+    <echo message="env.PATH=${env.PATH} env.HOME=${env.HOME} env.USER=${env.USER}"/>
+  </target>
+
+  <target name="get">
+    <get src="https://repo.maven.apache.org/maven2/junit/junit/4.13.2/junit-4.13.2.pom" dest="${out}/junit.pom"/>
+    <loadfile property="pom" srcFile="${out}/junit.pom"/>
+    <fail message="get"><condition><not><contains string="${pom}" substring="&lt;artifactId&gt;junit"/></not></condition></fail>
+  </target>
+
+  <target name="failing">
+    <fail message="intentional failure"/>
+  </target>
+
+  <!-- Round 2 (2026-11-22): what each launcher does on VSI Java. -->
+  <property name="javaexe" location="${java.home}/bin/java.exe"/>
+  <property name="javacexe" location="${java.home}/../bin/javac.exe"/>
+
+  <target name="vm-path" depends="jar">
+    <exec executable="${javaexe}" outputproperty="o" resultproperty="rc">
+      <arg value="-cp"/><arg value="${out}/hello.jar"/><arg value="hello.Hello"/>
+      <arg value="MixedCase Arg"/><arg value="a/b"/><arg value="it's &quot;q&quot;"/>
+    </exec>
+    <echo message="rc=${rc}${line.separator}${o}"/>
+    <exec executable="${javaexe}" resultproperty="rc3" failonerror="false">
+      <arg value="-jar"/><arg value="${out}/hello.jar"/><arg value="exit3"/>
+    </exec>
+    <echo message="exit3 rc=${rc3}"/>
+  </target>
+
+  <target name="vm-optfile" depends="jar">
+    <echo file="${out}/opts.txt" message="-cp${line.separator}${out}/hello.jar${line.separator}hello.Hello${line.separator}Opt File${line.separator}"/>
+    <exec executable="${javaexe}" outputproperty="o" errorproperty="e" resultproperty="rc" failonerror="false">
+      <arg value="-V"/><arg value="${out}/opts.txt"/>
+    </exec>
+    <echo message="-V rc=${rc}${line.separator}out=${o}${line.separator}err=${e}"/>
+  </target>
+
+  <target name="dcl-write">
+    <exec executable="write" vmlauncher="false" outputproperty="o" resultproperty="rc" failonerror="false">
+      <arg value="sys$output"/><arg value="&quot;Exec Works&quot;"/>
+    </exec>
+    <echo message="rc=${rc} out=[${o}]"/>
+  </target>
+
+  <target name="dcl-args" depends="jar">
+    <exec executable="${javaexe}" vmlauncher="false" outputproperty="o" resultproperty="rc" failonerror="false">
+      <arg value="-cp"/><arg value="${out}/hello.jar"/><arg value="hello.Hello"/><arg value="MixedCase Arg"/>
+    </exec>
+    <echo message="rc=${rc}${line.separator}${o}"/>
+  </target>
+
+  <target name="dcl-fail">
+    <exec executable="directory" vmlauncher="false" resultproperty="rc" failonerror="false">
+      <arg value="nosuchfile.nothere"/>
+    </exec>
+    <echo message="failing DCL rc=${rc}"/>
+  </target>
+
+  <target name="dcl-env">
+    <exec executable="show" vmlauncher="false" outputproperty="o" failonerror="false">
+      <arg value="logical"/><arg value="sys$login"/>
+    </exec>
+    <echo message="[${o}]"/>
+    <exec executable="show" vmlauncher="false" outputproperty="o2" failonerror="false">
+      <env key="ANT_PROBE_VAR" value="Has Space"/>
+      <arg value="logical"/><arg value="ant_probe_var"/>
+    </exec>
+    <echo message="[${o2}]"/>
+  </target>
+
+  <target name="vm-exits" depends="jar">
+    <exec executable="${javaexe}" resultproperty="r0" failonerror="false"><arg value="-jar"/><arg value="${out}/hello.jar"/><arg value="exit0"/></exec>
+    <exec executable="${javaexe}" resultproperty="r1" failonerror="false"><arg value="-jar"/><arg value="${out}/hello.jar"/><arg value="exit1"/></exec>
+    <exec executable="${javaexe}" resultproperty="r2" failonerror="false"><arg value="-jar"/><arg value="${out}/hello.jar"/><arg value="exit2"/></exec>
+    <exec executable="${javaexe}" resultproperty="r44" failonerror="false"><arg value="-jar"/><arg value="${out}/hello.jar"/><arg value="exit44"/></exec>
+    <exec executable="write" vmlauncher="false" resultproperty="d1" failonerror="false"><arg value="sys$output"/><arg value="ok"/></exec>
+    <echo message="java exit 0/1/2/44 -> ${r0}/${r1}/${r2}/${r44}; DCL success -> ${d1}"/>
+  </target>
+
+  <target name="javac-path">
+    <mkdir dir="${out}/pclasses"/>
+    <javac srcdir="src" destdir="${out}/pclasses" includeantruntime="false" fork="true"
+           executable="${javacexe}" source="8" target="8"/>
+    <fail message="no class"><condition><not><available file="${out}/pclasses/hello/Hello.class"/></not></condition></fail>
+  </target>
+</project>
