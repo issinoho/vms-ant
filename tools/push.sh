@@ -2,7 +2,8 @@
 # push.sh <node> - upload the prepared tree (staging/) to <node>'s work directory,
 # into <workdir>.APACHE-ANT-<version with dots as underscores>], e.g.
 # [.APACHE-ANT-1_10_18]. Only files whose content changed since the last push
-# to this node are uploaded (PUSH_ALL=1 uploads everything).
+# to this node are uploaded (PUSH_ALL=1 uploads everything). The manual (about
+# 1,500 files) is left out unless PUSH_MANUAL=1: only the kit needs it.
 #
 set -euo pipefail
 export LC_ALL=C   # sort and comm must agree on collation
@@ -22,7 +23,9 @@ manifest=$top/cache/pushed-$name-$node.sha
 [ "${PUSH_ALL:-}" = 1 ] && rm -f "$manifest"
 touch "$manifest"
 now=$top/cache/push-$name-$node.sha
-(cd "$stage/.." && find "$name" -type f -print0 | sort -z | xargs -0 sha256sum) |
+skip=(-path "$name/manual" -prune -o)
+[ "${PUSH_MANUAL:-}" = 1 ] && skip=()
+(cd "$stage/.." && find "$name" "${skip[@]}" -type f -print0 | sort -z | xargs -0 sha256sum) |
     sed "s| $name/| $remote/|" > "$now"
 changed=$(comm -23 <(awk '{print $2" "$1}' "$now" | sort) \
                    <(awk '{print $2" "$1}' "$manifest" | sort) | awk '{print $1}')
@@ -31,7 +34,7 @@ batch=$top/cache/push-$node.batch
 {
     echo "-mkdir $SFTPDIR"
     echo "cd $SFTPDIR"
-    (cd "$stage" && find . -type d) | sed "s|^\.|$remote|; s|^|-mkdir |"
+    (cd "$stage" && find . ${skip:+-path ./manual -prune -o} -type d -print) | sed "s|^\.|$remote|; s|^|-mkdir |"
     # Explicit put per file: 'put -r' into an existing directory nests a copy.
     for f in $changed; do echo "put $stage/${f#"$remote"/} $f"; done
 } > "$batch"
