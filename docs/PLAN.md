@@ -69,6 +69,10 @@ The family release process: tag v1.10.18-vms1, GitHub release with both kits and
 SHA256SUMS, entry in vms-grep/site/projects.json and the vms-grep README. Offer the
 patches upstream (Ant Bugzilla), with vms-maven's Ant launcher report.
 
+Status 2026-11-22: v1.10.18-vms1 released for x86-64 (kit
+ISSINOHO-X86VMS-ANT-V0110-18E1-1.PCSI), on the family site. The IA64 kit is to be
+added to the release once its node is back; patches upstream still to offer.
+
 ## Later
 
 Alpha: Ant 1.9.16 on Java 1.5 (D1), if wanted.
