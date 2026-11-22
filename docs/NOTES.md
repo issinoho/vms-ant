@@ -194,3 +194,14 @@ This kit does not collide with it on disk or in logical names: `[ANT]` and `ANT$
 against `[ANT_110]` and `ANT$HOME`. Both are product ANT under different producers
 (ISSINOHO, VSI), so PRODUCT commands must name the producer; and both set up a
 symbol ANT (whichever setup runs last wins).
+
+## N14. The kit installed, tested and removed (x86-64, 2026-11-22)
+
+tools/installcheck.sh x86 (the user agreed; no PCSI recovery data on the node):
+PRODUCT INSTALL ANT /PRODUCER=ISSINOHO from ISSINOHO-X86VMS-ANT-V0110-18E1-1.PCSI
+(44 MB, about 100 s): ANT$ROOT is `<sysdisk>:[SYS0.SYSCOMMON.ANT.]`, ANT$SETUP.COM
+defines `ANT == "$ANT$ROOT:[BIN]ANT.EXE"`, all 26 jars have their real names again
+(ANT$CASE.COM), the manual is there, `ant -version` succeeds. TEST_SMOKE.COM with
+the installed ANT.EXE: 17/17 (ANTDCL.EXE found beside it). PRODUCT REMOVE left no
+ANT$ROOT, file, directory or startup procedure. VSI's ANT 1.10-14A (N13) was still
+installed afterwards, ANT$HOME and its 1,700-odd files untouched.

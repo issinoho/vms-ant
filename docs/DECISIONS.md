@@ -22,6 +22,8 @@ BUILD.COM compiles it on the node against `lib/*.jar` and puts the class back in
 
 PCSI product ISSINOHO ANT with the concealed rooted logical ANT$ROOT;
 kit ISSINOHO-<I64VMS|X86VMS>-ANT-V1.10-18E1-1.PCSI. Tags v1.10.18-vms<N>.
+VSI ships an Ant kit of its own (N13: VSI ANT 1.10-14A, [ANT_110], ANT$HOME); the user
+chose 2026-11-22 to keep the name ANT beside it. PRODUCT commands name the producer.
 
 ## D4. The launcher is a C image, ANT.EXE
 

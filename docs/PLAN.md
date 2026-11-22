@@ -60,6 +60,9 @@ PCSI kit ISSINOHO ANT (D3): the distribution with the patched ant.jar, ANT.EXE,
 ANT$STARTUP.COM, ANT$SETUP.COM (ANT symbol, needs Java), README.VMS; the manual
 included. tools/kit.sh and tools/installcheck.sh on both nodes.
 
+Status 2026-11-22: done on x86-64 (N14): the kit builds, installs beside VSI's ANT
+(N13), passes the smoke test installed, and removes cleanly. IA64 to run.
+
 ## Phase 4: release
 
 The family release process: tag v1.10.18-vms1, GitHub release with both kits and
