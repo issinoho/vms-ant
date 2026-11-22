@@ -1,0 +1,35 @@
+Subject: Execute.isFailure: non-zero is failure on OpenVMS too
+
+Ant's rule for OpenVMS was "an even exit value is a failure", for HP's JVM,
+which returned VMS statuses. VSI's JVM returns a program's Unix exit code:
+System.exit(0) gives 0, exit(1) gives 1, exit(3) gives 3. So a program that
+succeeded was reported as a failure (failonerror stopped the build) and
+exit 1 or 3 counted as success. VmsCommandLauncher now turns a DCL status
+into a Unix code too (patch 0004). The old rule stays available as
+ant.openvms.exitcodes=vms. NOTES N5, N8.
+
+--- a/vmsport/src/ant/org/apache/tools/ant/taskdefs/Execute.java
++++ b/vmsport/src/ant/org/apache/tools/ant/taskdefs/Execute.java
+@@ -569,12 +569,19 @@
+      * @return <code>true</code> if <code>exitValue</code> signals a failure.
+      */
+     public static boolean isFailure(int exitValue) {
+-        // on openvms even exit value signals failure;
+-        // for other platforms nonzero exit value signals failure
+-        return Os.isFamily("openvms")
++        // Nonzero exit value signals failure. On OpenVMS too: VSI's JVM
++        // returns a program's Unix exit code (System.exit(1) gives 1), and
++        // VmsCommandLauncher turns a DCL status into one; "even signals
++        // failure" (for HP's JVM) called 0 a failure and 1 a success there.
++        // ant.openvms.exitcodes=vms brings the old rule back.
++        return Os.isFamily("openvms") && VMS_STATUS_EXIT_CODES
+             ? (exitValue % 2 == 0) : (exitValue != 0);
+     }
+ 
++    /** Old OpenVMS exit-value rule: see {@link #isFailure(int)}. */
++    private static final boolean VMS_STATUS_EXIT_CODES =
++        "vms".equalsIgnoreCase(System.getProperty("ant.openvms.exitcodes"));
++
+     /**
+      * Did this execute return in a failure.
+      *

@@ -1,0 +1,32 @@
+Subject: JavaEnvUtils: the JDK's programs are JAVA.EXE etc. on OpenVMS
+
+getJreExecutable/getJdkExecutable look for java.home/bin/java, but on
+OpenVMS the file is JAVA.EXE, and addExtension added .exe only on DOS. Ant
+fell back to the bare name java, which VSI's JVM cannot start ("Cannot run
+program "java" ... no such file or directory"), so every forked <java>,
+<javac>, <javadoc> failed. NOTES N4.
+
+--- a/vmsport/src/ant/org/apache/tools/ant/util/JavaEnvUtils.java
++++ b/vmsport/src/ant/org/apache/tools/ant/util/JavaEnvUtils.java
+@@ -41,6 +41,8 @@
+     private static final boolean IS_DOS = Os.isFamily("dos");
+     /** Are we on Novell NetWare */
+     private static final boolean IS_NETWARE = Os.isName("netware");
++    /** Are we on OpenVMS, where the JDK's programs are JAVA.EXE etc.? */
++    private static final boolean IS_OPENVMS = Os.isFamily("openvms");
+     /** Are we on AIX */
+     private static final boolean IS_AIX = Os.isName("aix");
+ 
+@@ -434,9 +436,9 @@
+      * @since Ant 1.5
+      */
+     private static String addExtension(String command) {
+-        // This is the most common extension case - exe for windows and OS/2,
+-        // nothing for *nix.
+-        return command + (IS_DOS ? ".exe" : "");
++        // This is the most common extension case - exe for windows, OS/2
++        // and OpenVMS, nothing for *nix.
++        return command + (IS_DOS || IS_OPENVMS ? ".exe" : "");
+     }
+ 
+     /**

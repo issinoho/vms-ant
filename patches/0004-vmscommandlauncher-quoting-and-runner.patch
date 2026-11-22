@@ -1,0 +1,188 @@
+Subject: VmsCommandLauncher: quote arguments, run Unix paths, return Unix exit codes
+
+The DCL script wrote each argument unquoted, so DCL split it at spaces and
+upper-cased it under the TRADITIONAL parse style, and a DEFINE value with a
+quote broke. Arguments with white space or ! are now quoted; others are
+left alone, so DCL qualifiers (/SIZE) still work, and so is an argument
+that has a double quote already, which is taken to be written for DCL (<arg
+value='"Two words"'/>). DEFINE values are always quoted, and the script
+sets the EXTENDED parse style. A command given as an absolute Unix path
+(DCL's %DCL-W-NOCOMD) is run as a foreign command or with @. The script
+returns a success status as EXIT 1, which VSI's JVM reports as 0 (patch
+0003). Starting a DCL procedure straight from VSI's JVM fails at random
+(%DCL-E-OPENIN on its input mailbox, 9 times in 15), so if
+ant.openvms.dclrunner names an image (the port's ANTDCL.EXE), the script is
+run through it. NOTES N6, N8.
+
+--- a/vmsport/src/ant/org/apache/tools/ant/taskdefs/launcher/VmsCommandLauncher.java
++++ b/vmsport/src/ant/org/apache/tools/ant/taskdefs/launcher/VmsCommandLauncher.java
+@@ -29,6 +29,21 @@
+  * A command launcher for VMS that writes the command to a temporary
+  * DCL script before launching commands. This is due to limitations of
+  * both the DCL interpreter and the Java VM implementation.
++ *
++ * <p>The script quotes the arguments that DCL would split or cut short
++ * (white space, an exclamation mark), and sets the EXTENDED parse style, so
++ * a program gets its arguments as given; others are left as they are, so
++ * that DCL qualifiers such as /SIZE still work, and so is one that has a
++ * double quote, which is taken to be written for DCL already. A command
++ * given as an absolute Unix path is run as a foreign command (an image) or
++ * with @ (a .COM procedure).</p>
++ *
++ * <p>If the system property <code>ant.openvms.dclrunner</code> names an
++ * image, the script is run through it ("runner script"): starting a DCL
++ * procedure directly from VSI's JVM fails at random with %DCL-E-OPENIN on
++ * its input mailbox. The runner returns a Unix exit code: 0 for a success
++ * status. Without one the script ends with EXIT 1 for success, which VSI's
++ * JVM reports as 0, and the status otherwise.</p>
+  */
+ public class VmsCommandLauncher extends Java13CommandLauncher {
+ 
+@@ -49,8 +64,7 @@
+     public Process exec(Project project, String[] cmd, String[] env)
+         throws IOException {
+         File cmdFile = createCommandFile(project, cmd, env);
+-        Process p =
+-            super.exec(project, new String[] {cmdFile.getPath()}, env);
++        Process p = super.exec(project, scriptCommand(cmdFile), env);
+         deleteAfter(cmdFile, p);
+         return p;
+     }
+@@ -77,7 +91,7 @@
+     public Process exec(Project project, String[] cmd, String[] env,
+                         File workingDir) throws IOException {
+         File cmdFile = createCommandFile(project, cmd, env);
+-        Process p = super.exec(project, new String[] {cmdFile.getPath()}, env,
++        Process p = super.exec(project, scriptCommand(cmdFile), env,
+             workingDir);
+         deleteAfter(cmdFile, p);
+         return p;
+@@ -96,6 +110,12 @@
+         File script = FILE_UTILS.createTempFile(project, "ANT", ".COM", null, true, true);
+         try (BufferedWriter out = new BufferedWriter(new FileWriter(script))) {
+ 
++            // run on after an error, to return its status; keep the case of
++            // arguments for the program (DCL verbs do not mind)
++            out.write("$ SET NOON");
++            out.newLine();
++            out.write("$ SET PROCESS/PARSE_STYLE=EXTENDED");
++            out.newLine();
+             // add the environment as logicals to the DCL script
+             if (env != null) {
+                 int eqIndex;
+@@ -104,23 +124,110 @@
+                     if (eqIndex != -1) {
+                         out.write("$ DEFINE/NOLOG ");
+                         out.write(variable.substring(0, eqIndex));
+-                        out.write(" \"");
+-                        out.write(variable.substring(eqIndex + 1));
+-                        out.write('\"');
++                        out.write(" ");
++                        out.write(dclQuote(variable.substring(eqIndex + 1)));
+                         out.newLine();
+                     }
+                 }
+             }
+-            out.write("$ " + cmd[0]);
++            String verb = cmd[0];
++            if (verb.startsWith("/")) {
++                // DCL cannot run a Unix path: a foreign command for an image,
++                // @ for a procedure.
++                String spec = vmsSpec(verb);
++                if (spec.toUpperCase().endsWith(".COM")) {
++                    verb = "@" + spec;
++                } else {
++                    out.write("$ ANT_VMS_PROGRAM = " + dclQuote("$" + spec));
++                    out.newLine();
++                    verb = "ANT_VMS_PROGRAM";
++                }
++            }
++            out.write("$ " + verb);
+             for (int i = 1; i < cmd.length; i++) {
+                 out.write(" -");
+                 out.newLine();
+-                out.write(cmd[i]);
++                out.write(dclArgument(cmd[i]));
+             }
++            out.newLine();
++            // A success status as EXIT 1, which VSI's JVM reports as 0 (the
++            // runner, if any, maps the status itself).
++            out.write("$ ANT_VMS_STATUS = $STATUS");
++            out.newLine();
++            out.write("$ IF ANT_VMS_STATUS THEN EXIT 1");
++            out.newLine();
++            out.write("$ EXIT ANT_VMS_STATUS");
++            out.newLine();
+         }
+         return script;
+     }
+ 
++    /** The command that runs the script: through the runner, if there is one. */
++    private static String[] scriptCommand(File script) {
++        String runner = System.getProperty("ant.openvms.dclrunner");
++        if (runner != null && !runner.isEmpty() && new File(runner).exists()) {
++            return new String[] {runner, script.getPath()};
++        }
++        return new String[] {script.getPath()};
++    }
++
++    /** Quoted for DCL: in double quotes, with each double quote doubled. */
++    static String dclQuote(String s) {
++        return '"' + s.replace("\"", "\"\"") + '"';
++    }
++
++    /**
++     * An argument for the script: quoted if DCL would split it (white
++     * space) or end the line early (!); otherwise as it is, so that
++     * qualifiers stay qualifiers. One that has a double quote already is
++     * taken to be written for DCL (<arg value='"Two words"'/>) and is left
++     * as it is too. Empty becomes "".
++     */
++    static String dclArgument(String s) {
++        if (s.indexOf('"') >= 0) {
++            return s;
++        }
++        boolean quote = s.isEmpty();
++        for (int i = 0; i < s.length() && !quote; i++) {
++            char c = s.charAt(i);
++            quote = Character.isWhitespace(c) || c == '!';
++        }
++        return quote ? dclQuote(s) : s;
++    }
++
++    /**
++     * An absolute Unix path in OpenVMS form: /DEV/a/b/name.ext becomes
++     * DEV:[a.b]name.ext (and /DEV/name.ext DEV:[000000]name.ext), with the
++     * dots of directory names and all but the last dot of the file name
++     * escaped with ^, as ODS-5 needs.
++     */
++    static String vmsSpec(String path) {
++        String[] parts = path.substring(1).split("/");
++        if (parts.length < 2) {
++            return path;
++        }
++        StringBuilder sb = new StringBuilder(parts[0]).append(":[");
++        if (parts.length == 2) {
++            sb.append("000000");
++        }
++        for (int i = 1; i < parts.length - 1; i++) {
++            if (i > 1) {
++                sb.append('.');
++            }
++            sb.append(parts[i].replace(".", "^."));
++        }
++        sb.append(']');
++        String name = parts[parts.length - 1];
++        int dot = name.lastIndexOf('.');
++        if (dot > 0) {
++            sb.append(name.substring(0, dot).replace(".", "^."))
++                .append(name.substring(dot));
++        } else {
++            sb.append(name);
++        }
++        return sb.toString();
++    }
++
+     private void deleteAfter(final File f, final Process p) {
+         new Thread(() -> {
+             try {

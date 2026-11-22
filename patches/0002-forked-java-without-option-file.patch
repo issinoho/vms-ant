@@ -1,0 +1,53 @@
+Subject: Forked java and javac on OpenVMS: arguments on the command line, not in a -V file
+
+On OpenVMS Ant passed a forked JVM's (and javac's) arguments in a file
+named by -V, a switch of HP's JVM. VSI's JVM (OpenJDK 8) still takes -V but
+splits each line at spaces, so an argument "Opt File" arrived as two;
+started through the VM launcher it gets each argument intact. The -V file
+is now used only when the system property ant.openvms.java.optionfile is
+true. NOTES N5, N7.
+
+--- a/vmsport/src/ant/org/apache/tools/ant/taskdefs/ExecuteJava.java
++++ b/vmsport/src/ant/org/apache/tools/ant/taskdefs/ExecuteJava.java
+@@ -305,6 +305,14 @@
+     }
+ 
+     /**
++     * Whether forked JVMs on OpenVMS get their arguments in a "-V" file, as
++     * HP's JVM needed: only when the property ant.openvms.java.optionfile
++     * is true. VSI's JVM splits each line of the file at spaces.
++     */
++    static final boolean USE_VMS_OPTION_FILE =
++        Boolean.getBoolean("ant.openvms.java.optionfile");
++
++    /**
+      * On VMS platform, we need to create a special java options file
+      * containing the arguments and classpath for the java command.
+      * The special file is supported by the "-V" switch on the VMS JVM.
+@@ -315,6 +323,12 @@
+     public static void setupCommandLineForVMS(Execute exe, String[] command) {
+         //Use the VM launcher instead of shell launcher on VMS
+         exe.setVMLauncher(true);
++        if (!USE_VMS_OPTION_FILE) {
++            // VSI's JVM (OpenJDK 8) gets each argument intact through the VM
++            // launcher, but splits the lines of a -V file at spaces.
++            exe.setCommandline(command);
++            return;
++        }
+         File vmsJavaOptionFile = null;
+         try {
+             String[] args = new String[command.length - 1];
+--- a/vmsport/src/ant/org/apache/tools/ant/taskdefs/compilers/JavacExternal.java
++++ b/vmsport/src/ant/org/apache/tools/ant/taskdefs/compilers/JavacExternal.java
+@@ -60,7 +60,10 @@
+         //On VMS platform, we need to create a special java options file
+         //containing the arguments and classpath for the javac command.
+         //The special file is supported by the "-V" switch on the VMS JVM.
+-        if (Os.isFamily("openvms")) {
++        //VSI's JVM splits the lines of a -V file at spaces, and gets each
++        //argument intact without one (ant.openvms.java.optionfile, ExecuteJava).
++        if (Os.isFamily("openvms")
++            && Boolean.getBoolean("ant.openvms.java.optionfile")) {
+             return execOnVMS(cmd, openVmsFirstFileName);
+         }
+ 

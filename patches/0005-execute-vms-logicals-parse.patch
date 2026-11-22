@@ -1,0 +1,66 @@
+Subject: Execute.getVMSLogicals: today's SHOW LOGICAL layout
+
+<property environment> and anything else that reads the environment found
+nothing on OpenVMS: the parser expected lines starting with two spaces and
+a quote, and today's SHOW LOGICAL indents with three and adds the table
+name: '   "SYS$LOGIN" = "DISK$USER:[me]" (LNM$JOB_...)'. The lines are now
+matched with any indent, an optional [attributes] and (table), and doubled
+quotes in a value are undone. NOTES N6.
+
+--- a/vmsport/src/ant/org/apache/tools/ant/taskdefs/Execute.java
++++ b/vmsport/src/ant/org/apache/tools/ant/taskdefs/Execute.java
+@@ -694,36 +694,42 @@
+      * multiple equivalence names are mapped to a variable with multiple
+      * values separated by a comma (,).
+      */
++    private static final java.util.regex.Pattern VMS_LOGICAL =
++        java.util.regex.Pattern.compile("\\s*\"(.+?)\"\\s*(?:\\[[^\\]]*\\]\\s*)?=\\s*\"(.*?)\"(?:\\s*\\[[^\\]]*\\])?(?:\\s*\\(.*\\))?\\s*");
++    private static final java.util.regex.Pattern VMS_LOGICAL_MORE =
++        java.util.regex.Pattern.compile("\\s*=\\s*\"(.*?)\"(?:\\s*\\[[^\\]]*\\])?\\s*");
++
+     private static Map<String, String> getVMSLogicals(BufferedReader in)
+         throws IOException {
+         Map<String, String> logicals = new HashMap<>();
+         String logName = null, logValue = null, newLogName;
+         String line;
+-        // CheckStyle:MagicNumber OFF
+         while ((line = in.readLine()) != null) {
+             // parse the VMS logicals into required format ("VAR=VAL[,VAL2]")
+-            if (line.startsWith("\t=")) {
+-                // further equivalence name of previous logical
+-                if (logName != null) {
+-                    logValue += "," + line.substring(4, line.length() - 1);
+-                }
+-            } else if (line.startsWith("  \"")) {
+-                // new logical?
++            // Lines are '  "NAME" = "VALUE"', with any indent and, in later
++            // versions of OpenVMS, a table name after the first value:
++            // '   "NAME" = "VALUE" (LNM$PROCESS_TABLE)'; further values
++            // follow on lines '        = "VALUE2"'.
++            java.util.regex.Matcher m = VMS_LOGICAL.matcher(line);
++            if (m.matches()) {
+                 if (logName != null) {
+                     logicals.put(logName, logValue);
+                 }
+-                int eqIndex = line.indexOf('=');
+-                newLogName = line.substring(3, eqIndex - 2);
++                newLogName = m.group(1);
+                 if (logicals.containsKey(newLogName)) {
+                     // already got this logical from a higher order table
+                     logName = null;
+                 } else {
+                     logName = newLogName;
+-                    logValue = line.substring(eqIndex + 3, line.length() - 1);
++                    logValue = m.group(2).replace("\"\"", "\"");
++                }
++            } else if ((m = VMS_LOGICAL_MORE.matcher(line)).matches()) {
++                // further equivalence name of previous logical
++                if (logName != null) {
++                    logValue += "," + m.group(1).replace("\"\"", "\"");
+                 }
+             }
+         }
+-        // CheckStyle:MagicNumber ON
+         // Since we "look ahead" before adding, there's one last env var.
+         if (logName != null) {
+             logicals.put(logName, logValue);

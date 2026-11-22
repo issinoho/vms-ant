@@ -1,0 +1,5 @@
+0001-javaenvutils-exe-on-openvms.patch
+0002-forked-java-without-option-file.patch
+0003-execute-isfailure-unix-codes.patch
+0004-vmscommandlauncher-quoting-and-runner.patch
+0005-execute-vms-logicals-parse.patch
