@@ -1,7 +1,7 @@
 # Decisions
 
-D1-D5 agreed with the user 2026-11-22 ("Yes agreed"). The question at the end of D5
-is still open.
+D1-D5 agreed with the user 2026-11-22 ("Yes agreed"); the question at the end of D5
+answered yes the same day (patch 0006).
 
 ## D1. Ant 1.10.18 on the nodes' Java 8; the Alpha later, with 1.9.16
 
@@ -54,6 +54,7 @@ so it is the right default, as on every other platform. Patches to ant.jar:
    (N8) and its output reaches Java without line ends (N9).
 5. `Execute.getVMSLogicals`: parse today's SHOW LOGICAL layout (N6).
 
-Open for the user: whether `<exec executable="mms">` (a bare name that is a DCL verb
-or a foreign command) should fall back to the DCL launcher on OpenVMS when no image
-of that name is found. Without it, build files must say `vmlauncher="false"`.
+`<exec executable="mms">` (a bare name that is a DCL verb or a foreign command) falls
+back to the DCL launcher when no image of that name is found and `vmlauncher` is not
+given (agreed 2026-11-22; patch 0006, NOTES N10). `vmlauncher="true"` given, or
+`-Dant.openvms.dclfallback=false`, keeps the VM launcher only.

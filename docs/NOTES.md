@@ -127,3 +127,14 @@ ANTDCL.EXE now gives the subprocess a mailbox of its own and copies each record
 to its standard output with a line end, an empty record as an empty line; the end
 is an end-of-file it writes itself when the subprocess has ended (one DCL may
 write before that is skipped).
+
+## N10. A bare DCL verb or symbol in <exec> (patch 0006, x86-64, 2026-11-22)
+
+With patch 0006, `<exec executable="show"><arg value="time"/></exec>` and
+`<exec executable="directory">` with `/nohead /notrail build.xml` run as DCL
+commands without `vmlauncher="false"`, and a failing DIRECTORY gives a failure
+code. `vmlauncher="true"` given keeps the VM launcher (the start fails as
+before). A global foreign-command symbol defined in the job before ANT runs
+(`ANTSMOKESYM == "write sys$output ""from a symbol"""`) works as an executable:
+ANTDCL.EXE's LIB$SPAWN copies the symbols of its process, so the job's symbols
+reach it through ANT.EXE, Java and ANTDCL.EXE. Smoke 17/17.

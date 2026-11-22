@@ -184,6 +184,32 @@ $ write sys$output "three"
     <once n="16"/><once n="17"/><once n="18"/><once n="19"/><once n="20"/>
   </target>
 
+  <!-- D5, patch 0006: a bare name that is no image runs as a DCL command;
+       vmlauncher="true" given keeps the VM launcher. -->
+  <target name="exec-fallback">
+    <exec executable="show" outputproperty="o" failonerror="true"><arg value="time"/></exec>
+    <echo message="[${o}]"/>
+    <fail message="SHOW TIME"><condition><not><matches string="${o}" pattern="[0-9]+-[A-Z]{3}-[0-9]{4}"/></not></condition></fail>
+    <exec executable="directory" outputproperty="d" failonerror="true">
+      <arg value="/nohead"/><arg value="/notrail"/><arg value="build.xml"/>
+    </exec>
+    <fail message="DIRECTORY: [${d}]"><condition><not><contains string="${d}" substring="build.xml" casesensitive="false"/></not></condition></fail>
+    <exec executable="directory" resultproperty="f" failonerror="false"><arg value="nosuch.file"/></exec>
+    <fail message="a failing DCL verb gave ${f}"><condition><not><isfailure code="${f}"/></not></condition></fail>
+    <exec executable="show" vmlauncher="true" resultproperty="v" failonerror="false"
+          failifexecutionfails="false"><arg value="time"/></exec>
+    <echo message="vmlauncher=true: result [${v}]"/>
+    <fail message="vmlauncher=true fell back to DCL"><condition><isset property="v"/></condition></fail>
+  </target>
+
+  <!-- D5, patch 0006: a foreign command symbol of the job (TEST_SMOKE.COM
+       defines ANTSMOKESYM). -->
+  <target name="exec-symbol">
+    <exec executable="antsmokesym" outputproperty="o" failonerror="true"/>
+    <echo message="[${o}]"/>
+    <fail message="symbol: [${o}]"><condition><not><equals arg1="${o}" arg2="from a symbol"/></not></condition></fail>
+  </target>
+
   <!-- N6 (patches 0004, 0005): the environment, both ways. -->
   <target name="env">
     <property environment="env"/>

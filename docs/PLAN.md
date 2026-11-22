@@ -36,6 +36,7 @@ Exit: the user agrees D1-D5.
 Status 2026-11-22: done on x86-64 except ANT on a terminal. Tooling, ANT.EXE
 (derived from vms-maven's mvn.c), ANTDCL.EXE (N8, N9), patches 0001-0005;
 TEST_SMOKE.COM 15/15, twice, the second after BUILD CLEAN. IA64 still unreachable.
+Later the same day: patch 0006 (DCL fallback for bare names, D5); smoke 17/17.
 
 ## Phase 2: Ant on real builds
 

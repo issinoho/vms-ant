@@ -3,3 +3,4 @@
 0003-execute-isfailure-unix-codes.patch
 0004-vmscommandlauncher-quoting-and-runner.patch
 0005-execute-vms-logicals-parse.patch
+0006-exectask-dcl-fallback.patch

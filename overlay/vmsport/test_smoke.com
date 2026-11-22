@@ -85,6 +85,14 @@ $ gosub run
 $ t = "DCL exec 20 times (ANTDCL.EXE, NOTES N8)"
 $ args = "exec-dcl-repeat"
 $ gosub run
+$ t = "a bare DCL verb without vmlauncher runs as DCL (patch 0006)"
+$ args = "exec-fallback"
+$ gosub run
+$ t = "a foreign command symbol of the job (patch 0006)"
+$ antsmokesym == "write sys$output ""from a symbol"""
+$ args = "exec-symbol"
+$ gosub run
+$ delete/symbol/global antsmokesym
 $ t = "environment: property environment, env with quotes (patches 0004, 0005)"
 $ args = "env"
 $ gosub run
