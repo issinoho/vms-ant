@@ -1,0 +1,126 @@
+<?xml version="1.0"?>
+<!-- Phase 2: Ant on a small real project (TEST_PROJECTS.COM). JUnit 4 and
+     Hamcrest come from Maven Central into out/deps, checked against Central's
+     SHA-1 files. -->
+<project name="projects" default="all" basedir=".">
+  <property name="out" location="out"/>
+  <property name="central" value="https://repo.maven.apache.org/maven2"/>
+  <property name="fail.test" value="false"/>
+
+  <path id="deps">
+    <fileset dir="${out}/deps" includes="*.jar" erroronmissingdir="false"/>
+  </path>
+
+  <target name="clean">
+    <delete dir="${out}/build"/>
+  </target>
+
+  <macrodef name="central">
+    <attribute name="path"/><attribute name="name"/>
+    <sequential>
+      <get src="${central}/@{path}/@{name}" dest="${out}/deps/@{name}" skipexisting="true"/>
+      <get src="${central}/@{path}/@{name}.sha1" dest="${out}/deps/@{name}.sha1" skipexisting="true"/>
+      <checksum file="${out}/deps/@{name}" algorithm="SHA-1" fileext=".sha1" verifyproperty="ok.@{name}"/>
+      <fail message="@{name}: SHA-1 mismatch"><condition><isfalse value="${ok.@{name}}"/></condition></fail>
+    </sequential>
+  </macrodef>
+
+  <target name="deps">
+    <mkdir dir="${out}/deps"/>
+    <central path="junit/junit/4.13.2" name="junit-4.13.2.jar"/>
+    <central path="org/hamcrest/hamcrest-core/1.3" name="hamcrest-core-1.3.jar"/>
+  </target>
+
+  <target name="compile" depends="deps">
+    <mkdir dir="${out}/build/classes"/>
+    <mkdir dir="${out}/build/test-classes"/>
+    <javac srcdir="src/main" destdir="${out}/build/classes" includeantruntime="false"
+           fork="true" source="8" target="8" debug="true"/>
+    <javac srcdir="src/test" destdir="${out}/build/test-classes" includeantruntime="false"
+           fork="true" source="8" target="8">
+      <classpath><pathelement location="${out}/build/classes"/><path refid="deps"/></classpath>
+    </javac>
+  </target>
+
+  <target name="test" depends="compile">
+    <mkdir dir="${out}/build/reports"/>
+    <junit fork="yes" forkmode="once" printsummary="yes" haltonfailure="yes"
+           failureproperty="tests.failed" dir="${basedir}">
+      <sysproperty key="fail.test" value="${fail.test}"/>
+      <classpath>
+        <pathelement location="${out}/build/classes"/>
+        <pathelement location="${out}/build/test-classes"/>
+        <path refid="deps"/>
+      </classpath>
+      <formatter type="xml"/>
+      <formatter type="plain"/>
+      <batchtest todir="${out}/build/reports"><fileset dir="src/test" includes="**/*Test.java"/></batchtest>
+    </junit>
+    <junitreport todir="${out}/build/reports">
+      <fileset dir="${out}/build/reports" includes="TEST-*.xml"/>
+      <report format="noframes" todir="${out}/build/reports/html"/>
+    </junitreport>
+    <fail message="no HTML report"><condition><not><available file="${out}/build/reports/html/junit-noframes.html"/></not></condition></fail>
+  </target>
+
+  <target name="javadoc" depends="compile">
+    <javadoc sourcepath="src/main" destdir="${out}/build/api" packagenames="com.example.*"
+             failonerror="true" failonwarning="false"/>
+    <fail message="no javadoc"><condition><not><available file="${out}/build/api/com/example/util/Words.html"/></not></condition></fail>
+  </target>
+
+  <target name="dist" depends="compile">
+    <jar destfile="${out}/build/app.jar" basedir="${out}/build/classes">
+      <manifest><attribute name="Main-Class" value="com.example.App"/></manifest>
+    </jar>
+    <zip destfile="${out}/build/app-src.zip"><fileset dir="src"/></zip>
+    <java jar="${out}/build/app.jar" fork="true" failonerror="true" outputproperty="run">
+      <arg value="Two words"/><arg value="  three  more words "/>
+    </java>
+    <echo message="${run}"/>
+    <fail message="run: ${run}"><condition><not><and>
+      <contains string="${run}" substring="Two words: 2 word(s)"/>
+      <contains string="${run}" substring="  three  more words : 3 word(s)"/>
+    </and></not></condition></fail>
+  </target>
+
+  <!-- Two forked JVMs at once. -->
+  <target name="parallel" depends="dist">
+    <parallel>
+      <java jar="${out}/build/app.jar" fork="true" failonerror="true" outputproperty="p1"><arg value="first job"/></java>
+      <java jar="${out}/build/app.jar" fork="true" failonerror="true" outputproperty="p2"><arg value="second job"/></java>
+    </parallel>
+    <fail message="parallel: [${p1}] [${p2}]"><condition><not><and>
+      <contains string="${p1}" substring="First job: 2"/><contains string="${p2}" substring="Second job: 2"/>
+    </and></not></condition></fail>
+  </target>
+
+  <!-- D5.2: a long classpath on a forked javac and java command line: about
+       20 KB, 250 directories (Ant drops entries that do not exist, and
+       duplicates). -->
+  <target name="longcp" depends="dist">
+    <mkdir dir="${out}/build/longcp"/>
+    <script language="javascript"><![CDATA[
+      var sb = new java.lang.StringBuilder();
+      var sep = project.getProperty("path.separator"), out = project.getProperty("out");
+      for (var i = 0; i < 250; i++) {
+        var d = out + "/build/longcp-filler/directory_" + i + "_on_the_classpath";
+        new java.io.File(d).mkdirs();
+        sb.append(d).append(sep);
+      }
+      project.setProperty("filler.cp", sb.toString());
+    ]]></script>
+    <javac srcdir="src/main" destdir="${out}/build/longcp" includeantruntime="false"
+           fork="true" source="8" target="8">
+      <classpath path="${filler.cp}"/>
+    </javac>
+    <java classname="com.example.App" fork="true" failonerror="true" outputproperty="cp">
+      <classpath path="${filler.cp}${out}/build/longcp"/>
+      <arg value="--cplen"/>
+    </java>
+    <echo message="${cp}"/>
+    <fail message="long classpath: ${cp}"><condition><not><matches string="${cp}" pattern="classpath length [0-9]{5}"/></not></condition></fail>
+  </target>
+
+  <target name="all" depends="clean,test,javadoc,dist,parallel"/>
+</project>

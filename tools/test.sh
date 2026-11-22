@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
-# test.sh <node> [smoke|probe] - run a test procedure as a batch job on <node> against
+# test.sh <node> [smoke|projects] - run a test procedure as a batch job on <node> against
 # the built tree (build.sh first):
-#   smoke   [.VMSPORT]TEST_SMOKE.COM: ANT.EXE and the patched tasks (default)
+#   smoke     [.VMSPORT]TEST_SMOKE.COM: ANT.EXE and the patched tasks (default)
+#   projects  [.VMSPORT]TEST_PROJECTS.COM: a small real project, JUnit and javadoc,
+#             a long classpath, two runs at once (Maven Central for JUnit)
 # Output is saved to out/<suite>-<node>.log; exit status 0 only if all tests pass.
 set -euo pipefail
 
 top=$(cd "$(dirname "$0")/.." && pwd)
-node=${1:?usage: test.sh <node> [smoke]}
+node=${1:?usage: test.sh <node> [smoke|projects]}
 suite=${2:-smoke}
 case $suite in
     smoke) com=TEST_SMOKE.COM tag=SMOKE ;;
+    projects) com=TEST_PROJECTS.COM tag=PROJECTS ;;
     *) echo "test.sh: unknown suite '$suite'" >&2; exit 2 ;;
 esac
 . "$top/upstream.conf"

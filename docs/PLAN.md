@@ -42,6 +42,11 @@ Phase 1 is done on x86-64; IA64 to run (build, smoke, tty) when reachable.
 
 ## Phase 2: Ant on real builds
 
+Status 2026-11-22: TEST_PROJECTS.COM 5/5 on x86-64 (N12): JUnit forked, junitreport,
+javadoc, `<parallel>`, a 20 KB classpath (no limit, D5.2), two runs at once; file
+versions in output trees looked at. Still to do: junitlauncher (JUnit 5), optional
+tasks that need extra jars, ~/.ant/lib, IA64.
+
 - A multi-file project: javac with a long classpath (command-line limits, D5.2),
   junit/junitlauncher with forked tests, javadoc, `<parallel>`, `<exec>` of DCL
   procedures, `<sshexec>`-style optional tasks that need extra jars (document).

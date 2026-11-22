@@ -150,3 +150,26 @@ status `%X00008200`), and no subprocess is left (OpenVMS deletes ANTDCL's with
 Java). DCL has CTRL/Y back afterwards. `$STATUS` at the prompt was `%X00030001`
 each time: DCL acts on the key once the image has ended (vms-maven N24), so it is
 shown, not checked.
+
+## N12. A small real project (TEST_PROJECTS.COM, x86-64, 2026-11-22)
+
+[.VMSPORT.TESTS.PROJECTS]: two packages, JUnit 4.13.2 and Hamcrest 1.3 from Maven
+Central (`<get>`, checked against Central's SHA-1), 5/5:
+
+- forked javac (main and tests), `<junit fork>` (3 tests), `<junitreport>` (XSLT to
+  HTML), `<javadoc>` (JAVADOC.EXE, found by patch 0001), jar, zip, the jar run
+  forked with arguments that have runs of spaces, `<parallel>` with two forked JVMs;
+- a failing test (`-Dfail.test=true`) fails the build with an error status;
+- a second build finds the classes up to date (no "Compiling");
+- forked javac and java with a classpath of 250 directories, over 10,000
+  characters (the program reported a five-digit length): no command-line limit, so
+  the `-V` file is not needed for long classpaths either (D5.2);
+- two Ant runs of the project at once, as batch jobs with their own out
+  directories: both succeed (temporary ANT*.COM names and ANTDCL mailboxes do not
+  collide).
+
+Ant's `<classpath>` drops entries that do not exist and duplicates, so the long
+classpath needs distinct real directories. After all of that, 2 of 408 files in
+the output tree had a second version: the JUnit plain and XML reports, written
+in place by two test runs. Jars and classes did not (Ant writes them to a new
+file); `clean` removes every version (N2).
