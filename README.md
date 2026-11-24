@@ -4,11 +4,11 @@
 
 # Apache Ant for OpenVMS
 
-![OpenVMS](https://img.shields.io/badge/OpenVMS-IA64%20%7C%20x86--64-blue)
+![OpenVMS](https://img.shields.io/badge/OpenVMS-x86--64-blue)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
-[Apache Ant](https://ant.apache.org) (**1.10.18**) for OpenVMS on **IA64** and
-**x86-64**, running on VSI OpenJDK 8. It belongs to the same family as
+[Apache Ant](https://ant.apache.org) (**1.10.18**) for OpenVMS on **x86-64**
+(IA64 to follow), running on VSI OpenJDK 8. It belongs to the same family as
 [Apache Maven](https://github.com/issinoho/vms-maven), [GNU grep](https://github.com/issinoho/vms-grep),
 [curl](https://github.com/issinoho/vms-curl) and the other
 [vms-* ports](https://openvms.issinoho.com).
